@@ -12,6 +12,7 @@
     .card { background: #1a1a1a; padding: 20px; border-radius: 12px; width: 100%; max-width: 500px; text-align: center; margin-bottom: 16px; border: 1px solid #333; }
     button { background: #22c55e; color: #000; border: none; padding: 12px 18px; border-radius: 8px; font-weight: bold; font-size: 15px; cursor: pointer; margin: 6px 0; width: 100%; }
     button.secondary { background: #333; color: #fff; }
+    button.switch-btn { background: #2563eb; color: #fff; margin-top: 12px; }
     button.dark-mode-btn { background: #111; color: #666; border: 1px solid #222; }
     input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #444; background: #000; color: #fff; font-size: 16px; text-align: center; margin-bottom: 10px; }
     .video-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; width: 100%; max-width: 1000px; }
@@ -26,12 +27,14 @@
   <!-- MAN HINH CHON VAI TRO -->
   <div id="setupScreen" class="card">
     <h2>Cam Gi&aacute;m S&aacute;t Wi-Fi</h2>
-    <p style="color:#aaa; font-size:14px;">L&#432;u &yacute;: H&atilde;y k&#7871;t n&#7889;i 2 m&aacute;y chung 1 m&#7841;ng Wi-Fi</p>
+    <p style="color:#aaa; font-size:14px;">K&#7871;t n&#7889;i 2 m&aacute;y chung 1 m&#7841;ng Wi-Fi</p>
     <button onclick="startViewer()">1. M&aacute;y C&#7847;m Theo (M&agrave;n H&igrave;nh Xem)</button>
     <hr style="border-color:#333; margin: 16px 0;">
     <input type="text" id="roomInput" placeholder="Nh&#7853;p m&atilde; ph&ograve;ng (VD: 1234)" />
-    <button class="secondary" onclick="startCamera('user')">2A. M&aacute;y &#272;&#7863;t Ngo&agrave;i (Camera Tr&#432;&#7899;c)</button>
-    <button class="secondary" onclick="startCamera('environment')">2B. M&aacute;y &#272;&#7863;t Ngo&agrave;i (Camera Sau)</button>
+    <button class="secondary" onclick="startSingleCamera('user')">2A. Ch&#7881; Camera Tr&#432;&#7899;c</button>
+    <button class="secondary" onclick="startSingleCamera('environment')">2B. Ch&#7881; Camera Sau</button>
+    <button class="secondary" onclick="startDualCamera()">2C. Th&#7917; M&#7903; C&#7843; 2 Camera C&ugrave;ng L&uacute;c</button>
+    <button style="background:#eab308; color:#000;" onclick="startAlternatingCamera()">2D. Lu&acirc;n Phi&ecirc;n Tr&#432;&#7899;c &harr; Sau (M&#7895;i 4s)</button>
   </div>
 
   <!-- GIAO DIEN MAY XEM -->
@@ -39,12 +42,13 @@
     <div style="font-size:13px; color:#aaa;">Nh&#7853;p m&atilde; n&agrave;y v&agrave;o m&aacute;y &#273;&#7863;t &#7903; ngo&agrave;i:</div>
     <div id="myRoomId" class="code-box">&#272;ang t&#7841;o...</div>
     <div id="statusText" style="font-size:13px; color:#4ade80;">&#272;ang ch&#7901; camera k&#7871;t n&#7889;i...</div>
+    <button id="remoteSwitchBtn" class="switch-btn hidden" onclick="sendSwitchCommand()">&#8644; &#272;&#7893;i Camera Tr&#432;&#7899;c / Sau Ngay</button>
   </div>
   <div id="videoGrid" class="video-grid"></div>
 
   <!-- GIAO DIEN MAY QUAY -->
   <div id="cameraScreen" class="card hidden">
-    <div style="color:#4ade80; font-weight:bold; margin-bottom:8px;">&#9679; &#272;ang ph&aacute;t tr&#7921;c ti&#7871;p (&#272;&atilde; t&#7855;t Flash &amp; Mic)</div>
+    <div id="camModeLabel" style="color:#4ade80; font-weight:bold; margin-bottom:8px;">&#9679; &#272;ang ph&aacute;t tr&#7921;c ti&#7871;p (T&#7855;t Flash)</div>
     <video id="localPreview" autoplay muted playsinline style="max-height: 240px;"></video>
     <button class="dark-mode-btn" onclick="toggleStealth(true)">L&agrave;m T&#7889;i &#272;en M&agrave;n H&igrave;nh (Ti&#7871;t Ki&#7879;m Pin)</button>
   </div>
@@ -57,8 +61,13 @@
 
   <script>
     let peer = null;
+    let activeStream = null;
+    let activeCall = null;
+    let dataConn = null;
+    let currentFacing = 'environment';
+    let switchInterval = null;
+    let isSwitching = false;
 
-    // Cau hinh STUN server de xuyen tuong lua mang tot hon
     const peerConfig = {
       config: {
         iceServers: [
@@ -76,6 +85,7 @@
       document.getElementById('stealthOverlay').style.display = show ? 'flex' : 'none';
     }
 
+    // ================= 1. MAY XEM =================
     function startViewer() {
       const randomCode = Math.floor(1000 + Math.random() * 9000).toString();
       document.getElementById('setupScreen').classList.add('hidden');
@@ -87,21 +97,33 @@
         document.getElementById('myRoomId').innerText = randomCode;
       });
 
+      // Nhan kenh dieu khien tu xa
+      peer.on('connection', (conn) => {
+        dataConn = conn;
+        document.getElementById('remoteSwitchBtn').classList.remove('hidden');
+      });
+
+      // Nhan luong video
       peer.on('call', (call) => {
         call.answer();
         call.on('stream', (remoteStream) => {
-          document.getElementById('statusText').innerText = '\u0110\u00e3 nh\u1eadn h\u00ecnh \u1ea3nh t\u1eeb camera!';
-          addVideoToGrid(remoteStream, call.peer);
+          document.getElementById('statusText').innerText = '\u0110\u00e3 k\u1ebft n\u1ed1i h\u00ecnh \u1ea3nh!';
+          addOrUpdateVideo(remoteStream, call.peer);
         });
       });
     }
 
-    function addVideoToGrid(stream, id) {
+    function sendSwitchCommand() {
+      if (dataConn && dataConn.open) {
+        dataConn.send('SWITCH_NOW');
+      }
+    }
+
+    function addOrUpdateVideo(stream, id) {
       let vid = document.getElementById('vid-' + id);
       if (!vid) {
         vid = document.createElement('video');
         vid.id = 'vid-' + id;
-        // Bat buoc set thuoc tinh truoc khi gan stream cho iOS Safari
         vid.muted = true;
         vid.autoplay = true;
         vid.playsInline = true;
@@ -111,40 +133,134 @@
         document.getElementById('videoGrid').appendChild(vid);
       }
       vid.srcObject = stream;
-      vid.play().catch(e => console.log('Autoplay blocked:', e));
+      vid.play().catch(() => {});
     }
 
-    async function startCamera(facingMode) {
+    // ================= 2A & 2B. 1 CAMERA =================
+    async function startSingleCamera(facingMode) {
       const roomCode = document.getElementById('roomInput').value.trim();
-      if (!roomCode) return alert('Vui l\u00f2ng nh\u1eadp m\u00e3 ph\u00f2ng hi\u1ec7n tr\u00ean m\u00e1y xem!');
+      if (!roomCode) return alert('Vui l\u00f2ng nh\u1eadp m\u00e3 ph\u00f2ng!');
 
       try {
-        // Giam do phan giai xuong 720p de truyen qua mang di dong/Wi-Fi muot hon
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { 
-            facingMode: facingMode, 
-            width: { ideal: 1280 }, 
-            height: { ideal: 720 } 
-          },
+        activeStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: facingMode, width: { ideal: 1280 }, height: { ideal: 720 } },
           audio: false
         });
-        connectAndSend(roomCode, stream);
+        setupCameraUI(roomCode, activeStream);
       } catch (err) {
-        alert('Kh\u00f4ng m\u1edf \u0111\u01b0\u1ee3c camera: ' + err.message);
+        alert('L\u1ed7i m\u1edf camera: ' + err.message);
       }
     }
 
-    function connectAndSend(roomCode, stream) {
+    // ================= 2C. THU MO 2 CAMERA CUNG LUC =================
+    async function startDualCamera() {
+      const roomCode = document.getElementById('roomInput').value.trim();
+      if (!roomCode) return alert('Vui l\u00f2ng nh\u1eadp m\u00e3 ph\u00f2ng!');
+
+      try {
+        const stream1 = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment', width: { ideal: 640 }, height: { ideal: 480 } },
+          audio: false
+        });
+        const stream2 = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+          audio: false
+        });
+
+        setupCameraUI(roomCode, stream1, stream2);
+      } catch (err) {
+        alert('Thi\u1ebft b\u1ecb t\u1eeb ch\u1ed1i m\u1edf c\u00f9ng l\u00fac 2 camera (' + err.name + '). H\u00e3y d\u00f9ng n\u00fat 2D Lu\u00e2n Phi\u00ean!');
+      }
+    }
+
+    // ================= 2D. LUAN PHIEN TRUOC <-> SAU =================
+    async function startAlternatingCamera() {
+      const roomCode = document.getElementById('roomInput').value.trim();
+      if (!roomCode) return alert('Vui l\u00f2ng nh\u1eadp m\u00e3 ph\u00f2ng!');
+
+      try {
+        activeStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: currentFacing, width: { ideal: 960 }, height: { ideal: 540 } },
+          audio: false
+        });
+        setupCameraUI(roomCode, activeStream);
+        document.getElementById('camModeLabel').innerText = '\u25cf Ch\u1ebf \u0111\u1ed9 lu\u00e2n phi\u00ean Tr\u01b0\u1edbc \u2194 Sau (4 gi\u00e2y/l\u1ea7n)';
+
+        // Tu dong doi camera moi 4 giay
+        switchInterval = setInterval(() => {
+          performCameraSwitch();
+        }, 4000);
+      } catch (err) {
+        alert('L\u1ed7i kh\u1edfi \u0111\u1ed9ng camera: ' + err.message);
+      }
+    }
+
+    async function performCameraSwitch() {
+      if (isSwitching || !activeCall) return;
+      isSwitching = true;
+
+      try {
+        // 1. Tat camera hien tai de giai phong phan cung cho iOS
+        if (activeStream) {
+          activeStream.getTracks().forEach(track => track.stop());
+        }
+
+        // 2. Dao chieu camera
+        currentFacing = (currentFacing === 'environment') ? 'user' : 'environment';
+
+        // 3. Mo camera moi
+        const newStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: currentFacing, width: { ideal: 960 }, height: { ideal: 540 } },
+          audio: false
+        });
+
+        activeStream = newStream;
+        document.getElementById('localPreview').srcObject = newStream;
+
+        // 4. Thay the luong video dang truyen sang may xem ma khong bi ngat ket noi
+        const newVideoTrack = newStream.getVideoTracks()[0];
+        const sender = activeCall.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
+        if (sender) {
+          await sender.replaceTrack(newVideoTrack);
+        }
+      } catch (e) {
+        console.log('Bo qua nhip chuyen:', e);
+      } finally {
+        isSwitching = false;
+      }
+    }
+
+    function setupCameraUI(roomCode, stream1, stream2 = null) {
       document.getElementById('setupScreen').classList.add('hidden');
       document.getElementById('cameraScreen').classList.remove('hidden');
       const preview = document.getElementById('localPreview');
-      preview.srcObject = stream;
+      preview.srcObject = stream1;
       preview.play().catch(() => {});
       keepAwake();
 
       peer = new Peer(peerConfig);
       peer.on('open', () => {
-        peer.call('cam-watch-' + roomCode, stream);
+        // Mo kenh nhan lenh dieu khien tu may xem
+        const conn = peer.connect('cam-watch-' + roomCode);
+        conn.on('data', (data) => {
+          if (data === 'SWITCH_NOW') {
+            clearInterval(switchInterval); // Dung tu dong neu nguoi dung bam chuyen tay
+            performCameraSwitch();
+          }
+        });
+
+        // Phat luong chinh
+        activeCall = peer.call('cam-watch-' + roomCode, stream1);
+
+        // Neu co luong thu 2 (che do 2C) thi tao them 1 ket noi phu
+        if (stream2) {
+          setTimeout(() => {
+            const peer2 = new Peer(peerConfig);
+            peer2.on('open', () => {
+              peer2.call('cam-watch-' + roomCode, stream2);
+            });
+          }, 800);
+        }
       });
     }
   </script>
