@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cam Gi&aacute;m S&aacute;t N&#7897;i B&#7897;</title>
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+  <style>
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+    body { margin: 0; background: #0d0d0d; color: #fff; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+    h2 { margin-top: 0; color: #4ade80; }
+    .card { background: #1a1a1a; padding: 20px; border-radius: 12px; width: 100%; max-width: 500px; text-align: center; margin-bottom: 16px; border: 1px solid #333; }
+    button { background: #22c55e; color: #000; border: none; padding: 12px 18px; border-radius: 8px; font-weight: bold; font-size: 15px; cursor: pointer; margin: 6px 0; width: 100%; }
+    button.secondary { background: #333; color: #fff; }
+    button.dark-mode-btn { background: #111; color: #666; border: 1px solid #222; }
+    input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #444; background: #000; color: #fff; font-size: 16px; text-align: center; margin-bottom: 10px; }
+    .video-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; width: 100%; max-width: 1000px; }
+    video { width: 100%; min-height: 220px; border-radius: 10px; background: #000; border: 1px solid #333; object-fit: cover; }
+    .code-box { font-size: 28px; font-weight: bold; letter-spacing: 3px; color: #4ade80; background: #000; padding: 10px; border-radius: 8px; margin: 10px 0; user-select: all; }
+    #stealthOverlay { display: none; position: fixed; inset: 0; background: #000; z-index: 9999; color: #222; align-items: center; justify-content: center; flex-direction: column; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+
+  <!-- MAN HINH CHON VAI TRO -->
+  <div id="setupScreen" class="card">
+    <h2>Cam Gi&aacute;m S&aacute;t Wi-Fi</h2>
+    <p style="color:#aaa; font-size:14px;">L&#432;u &yacute;: H&atilde;y k&#7871;t n&#7889;i 2 m&aacute;y chung 1 m&#7841;ng Wi-Fi</p>
+    <button onclick="startViewer()">1. M&aacute;y C&#7847;m Theo (M&agrave;n H&igrave;nh Xem)</button>
+    <hr style="border-color:#333; margin: 16px 0;">
+    <input type="text" id="roomInput" placeholder="Nh&#7853;p m&atilde; ph&ograve;ng (VD: 1234)" />
+    <button class="secondary" onclick="startCamera('user')">2A. M&aacute;y &#272;&#7863;t Ngo&agrave;i (Camera Tr&#432;&#7899;c)</button>
+    <button class="secondary" onclick="startCamera('environment')">2B. M&aacute;y &#272;&#7863;t Ngo&agrave;i (Camera Sau)</button>
+  </div>
+
+  <!-- GIAO DIEN MAY XEM -->
+  <div id="viewerScreen" class="card hidden">
+    <div style="font-size:13px; color:#aaa;">Nh&#7853;p m&atilde; n&agrave;y v&agrave;o m&aacute;y &#273;&#7863;t &#7903; ngo&agrave;i:</div>
+    <div id="myRoomId" class="code-box">&#272;ang t&#7841;o...</div>
+    <div id="statusText" style="font-size:13px; color:#4ade80;">&#272;ang ch&#7901; camera k&#7871;t n&#7889;i...</div>
+  </div>
+  <div id="videoGrid" class="video-grid"></div>
+
+  <!-- GIAO DIEN MAY QUAY -->
+  <div id="cameraScreen" class="card hidden">
+    <div style="color:#4ade80; font-weight:bold; margin-bottom:8px;">&#9679; &#272;ang ph&aacute;t tr&#7921;c ti&#7871;p (&#272;&atilde; t&#7855;t Flash &amp; Mic)</div>
+    <video id="localPreview" autoplay muted playsinline style="max-height: 240px;"></video>
+    <button class="dark-mode-btn" onclick="toggleStealth(true)">L&agrave;m T&#7889;i &#272;en M&agrave;n H&igrave;nh (Ti&#7871;t Ki&#7879;m Pin)</button>
+  </div>
+
+  <!-- MAN HINH DEN CHONG CHU Y -->
+  <div id="stealthOverlay" onclick="toggleStealth(false)">
+    <div>&#272;ang ch&#7841;y ng&#7847;m...</div>
+    <small style="margin-top:8px;">Ch&#7841;m v&agrave;o m&agrave;n h&igrave;nh &#273;&#7875; hi&#7879;n l&#7841;i</small>
+  </div>
+
+  <script>
+    let peer = null;
+
+    // Cau hinh STUN server de xuyen tuong lua mang tot hon
+    const peerConfig = {
+      config: {
+        iceServers: [
+          { urls: 'stun:stun.l.google.com:19302' },
+          { urls: 'stun:stun1.l.google.com:19302' }
+        ]
+      }
+    };
+
+    async function keepAwake() {
+      try { if ('wakeLock' in navigator) await navigator.wakeLock.request('screen'); } catch (e) {}
+    }
+
+    function toggleStealth(show) {
+      document.getElementById('stealthOverlay').style.display = show ? 'flex' : 'none';
+    }
+
+    function startViewer() {
+      const randomCode = Math.floor(1000 + Math.random() * 9000).toString();
+      document.getElementById('setupScreen').classList.add('hidden');
+      document.getElementById('viewerScreen').classList.remove('hidden');
+      keepAwake();
+
+      peer = new Peer('cam-watch-' + randomCode, peerConfig);
+      peer.on('open', () => {
+        document.getElementById('myRoomId').innerText = randomCode;
+      });
+
+      peer.on('call', (call) => {
+        call.answer();
+        call.on('stream', (remoteStream) => {
+          document.getElementById('statusText').innerText = '\u0110\u00e3 nh\u1eadn h\u00ecnh \u1ea3nh t\u1eeb camera!';
+          addVideoToGrid(remoteStream, call.peer);
+        });
+      });
+    }
+
+    function addVideoToGrid(stream, id) {
+      let vid = document.getElementById('vid-' + id);
+      if (!vid) {
+        vid = document.createElement('video');
+        vid.id = 'vid-' + id;
+        // Bat buoc set thuoc tinh truoc khi gan stream cho iOS Safari
+        vid.muted = true;
+        vid.autoplay = true;
+        vid.playsInline = true;
+        vid.setAttribute('muted', '');
+        vid.setAttribute('autoplay', '');
+        vid.setAttribute('playsinline', '');
+        document.getElementById('videoGrid').appendChild(vid);
+      }
+      vid.srcObject = stream;
+      vid.play().catch(e => console.log('Autoplay blocked:', e));
+    }
+
+    async function startCamera(facingMode) {
+      const roomCode = document.getElementById('roomInput').value.trim();
+      if (!roomCode) return alert('Vui l\u00f2ng nh\u1eadp m\u00e3 ph\u00f2ng hi\u1ec7n tr\u00ean m\u00e1y xem!');
+
+      try {
+        // Giam do phan giai xuong 720p de truyen qua mang di dong/Wi-Fi muot hon
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { 
+            facingMode: facingMode, 
+            width: { ideal: 1280 }, 
+            height: { ideal: 720 } 
+          },
+          audio: false
+        });
+        connectAndSend(roomCode, stream);
+      } catch (err) {
+        alert('Kh\u00f4ng m\u1edf \u0111\u01b0\u1ee3c camera: ' + err.message);
+      }
+    }
+
+    function connectAndSend(roomCode, stream) {
+      document.getElementById('setupScreen').classList.add('hidden');
+      document.getElementById('cameraScreen').classList.remove('hidden');
+      const preview = document.getElementById('localPreview');
+      preview.srcObject = stream;
+      preview.play().catch(() => {});
+      keepAwake();
+
+      peer = new Peer(peerConfig);
+      peer.on('open', () => {
+        peer.call('cam-watch-' + roomCode, stream);
+      });
+    }
+  </script>
+</body>
+</html>
