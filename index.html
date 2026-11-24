@@ -3,75 +3,73 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Cam Gi&aacute;m S&aacute;t N&#7897;i B&#7897;</title>
+  <title>Wi-Fi Cam</title>
   <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <style>
-    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
-    body { margin: 0; background: #0d0d0d; color: #fff; display: flex; flex-direction: column; align-items: center; padding: 16px; }
-    h2 { margin-top: 0; color: #4ade80; font-size: 20px; }
-    .card { background: #1a1a1a; padding: 18px; border-radius: 12px; width: 100%; max-width: 480px; text-align: center; margin-bottom: 14px; border: 1px solid #333; }
-    button { background: #22c55e; color: #000; border: none; padding: 13px 16px; border-radius: 8px; font-weight: bold; font-size: 15px; cursor: pointer; margin: 6px 0; width: 100%; }
-    button.secondary { background: #333; color: #fff; }
-    button.blue-btn { background: #2563eb; color: #fff; }
-    button.pip-btn { background: #9333ea; color: #fff; }
-    button.dark-mode-btn { background: #111; color: #666; border: 1px solid #222; }
-    input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #444; background: #000; color: #fff; font-size: 16px; text-align: center; margin-bottom: 10px; }
-    .row { display: flex; gap: 8px; }
-    .row button { flex: 1; }
-    .video-box { position: relative; width: 100%; max-width: 600px; border-radius: 12px; overflow: hidden; background: #000; border: 1px solid #333; }
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif; }
+    body { margin: 0; background: #09090b; color: #fafafa; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 16px; }
+    .card { background: #18181b; padding: 24px 20px; border-radius: 16px; width: 100%; max-width: 420px; text-align: center; margin-bottom: 14px; border: 1px solid #27272a; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+    h2 { margin: 0 0 20px; font-size: 22px; font-weight: 700; letter-spacing: -0.5px; color: #fff; }
+    button { background: #22c55e; color: #052e16; border: none; padding: 14px 18px; border-radius: 12px; font-weight: 700; font-size: 16px; cursor: pointer; width: 100%; transition: transform 0.1s, opacity 0.15s; }
+    button:active { transform: scale(0.98); opacity: 0.9; }
+    button.join-btn { background: #fafafa; color: #09090b; }
+    button.blue-btn { background: #2563eb; color: #fff; margin-top: 8px; }
+    button.pip-btn { background: #7c3aed; color: #fff; }
+    button.stealth-btn { background: #27272a; color: #a1a1aa; margin-top: 12px; font-size: 14px; }
+    .divider { height: 1px; background: #27272a; margin: 20px 0; }
+    input { width: 100%; padding: 14px; border-radius: 12px; border: 1px solid #3f3f46; background: #09090b; color: #fff; font-size: 18px; font-weight: 600; text-align: center; margin-bottom: 10px; outline: none; letter-spacing: 2px; }
+    input:focus { border-color: #22c55e; }
+    input::placeholder { letter-spacing: 0; font-weight: 400; font-size: 15px; color: #71717a; }
+    .code-box { font-size: 36px; font-weight: 800; letter-spacing: 6px; color: #4ade80; background: #09090b; padding: 14px; border-radius: 12px; margin: 10px 0; border: 1px solid #27272a; user-select: all; }
+    .sub-text { font-size: 13px; color: #a1a1aa; }
+    .video-box { position: relative; width: 100%; max-width: 560px; border-radius: 16px; overflow: hidden; background: #000; border: 1px solid #27272a; }
     video { width: 100%; display: block; background: #000; object-fit: cover; max-height: 70vh; }
-    .badge { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: #4ade80; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: bold; z-index: 10; }
-    .code-box { font-size: 28px; font-weight: bold; letter-spacing: 3px; color: #4ade80; background: #000; padding: 10px; border-radius: 8px; margin: 8px 0; user-select: all; }
-    #stealthOverlay { display: none; position: fixed; inset: 0; background: #000; z-index: 9999; color: #222; align-items: center; justify-content: center; flex-direction: column; }
+    .badge { position: absolute; top: 12px; left: 12px; background: rgba(9,9,11,0.75); backdrop-filter: blur(6px); color: #4ade80; padding: 5px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; z-index: 10; }
+    #stealthOverlay { display: none; position: fixed; inset: 0; background: #000; z-index: 9999; color: #27272a; align-items: center; justify-content: center; flex-direction: column; }
     .hidden { display: none !important; }
   </style>
 </head>
 <body>
 
-  <!-- MAN HINH CHON VAI TRO -->
+  <!-- MAN HINH CHINH -->
   <div id="setupScreen" class="card">
-    <h2>Cam Gi&aacute;m S&aacute;t Wi-Fi</h2>
-    <button onclick="startViewer()">1. M&aacute;y C&#7847;m Theo (M&agrave;n H&igrave;nh Xem)</button>
-    <hr style="border-color:#333; margin: 16px 0;">
-    <input type="text" id="roomInput" placeholder="Nh&#7853;p m&atilde; ph&ograve;ng (VD: 1234)" />
-    <div class="row">
-      <button class="secondary" onclick="startCamera('environment')">2A. Cam Sau</button>
-      <button class="secondary" onclick="startCamera('user')">2B. Cam Tr&#432;&#7899;c</button>
-    </div>
+    <h2>Wi-Fi Cam</h2>
+    <button onclick="createRoom()">T&#7841;o ph&ograve;ng</button>
+    <div class="divider"></div>
+    <input type="tel" id="roomInput" maxlength="6" placeholder="Nh&#7853;p m&atilde; ph&ograve;ng" />
+    <button class="join-btn" onclick="joinRoom()">Tham gia ph&ograve;ng</button>
   </div>
 
-  <!-- GIAO DIEN MAY XEM -->
+  <!-- GIAO DIEN PHONG DA TAO -->
   <div id="viewerScreen" class="card hidden">
-    <div style="font-size:13px; color:#aaa;">Nh&#7853;p m&atilde; n&agrave;y v&agrave;o m&aacute;y &#273;&#7863;t &#7903; ngo&agrave;i:</div>
-    <div id="myRoomId" class="code-box">&#272;ang t&#7841;o...</div>
-    <div id="statusText" style="font-size:13px; color:#4ade80;">&#272;ang ch&#7901; camera k&#7871;t n&#7889;i...</div>
+    <div class="sub-text">M&atilde; ph&ograve;ng</div>
+    <div id="myRoomId" class="code-box">----</div>
+    <div id="statusText" class="sub-text" style="color:#4ade80;">&#272;ang ch&#7901; k&#7871;t n&#7889;i...</div>
 
-    <!-- NUT DIEU KHIEN & PIP -->
-    <div id="viewerControls" class="hidden" style="margin-top: 12px; border-top: 1px solid #333; padding-top: 10px;">
-      <button class="pip-btn" onclick="enablePiP()">&#10697; B&#7853;t C&#7917;a S&#7893; N&#7893;i (PiP)</button>
-      <button class="blue-btn" onclick="requestSwitchCam()">&#8644; &#272;&#7893;i Cam Tr&#432;&#7899;c / Sau</button>
+    <div id="viewerControls" class="hidden" style="margin-top: 16px;">
+      <button class="pip-btn" onclick="enablePiP()">C&#7917;a s&#7893; n&#7893;i (PiP)</button>
+      <button class="blue-btn" onclick="requestCycleCam()">&#272;&#7893;i camera</button>
     </div>
   </div>
 
-  <!-- KHUNG VIDEO TRUC TIEP -->
+  <!-- KHUNG VIDEO -->
   <div id="videoContainer" class="video-box hidden">
     <div id="camBadge" class="badge">&#9679; LIVE</div>
     <video id="remoteVideo" autoplay muted playsinline></video>
   </div>
 
-  <!-- GIAO DIEN MAY QUAY -->
+  <!-- GIAO DIEN THIET BI PHAT -->
   <div id="cameraScreen" class="card hidden">
-    <div id="camStatusLabel" style="color:#4ade80; font-weight:bold; margin-bottom:10px;">&#9679; &#272;ang ph&aacute;t tr&#7921;c ti&#7871;p (T&#7855;t Flash)</div>
+    <div id="camStatusLabel" style="color:#4ade80; font-weight:600; font-size:14px; margin-bottom:12px;">&#9679; &#272;ang ph&aacute;t</div>
     <div class="video-box">
       <video id="localPreview" autoplay muted playsinline style="max-height: 240px;"></video>
     </div>
-    <button class="dark-mode-btn" style="margin-top:12px;" onclick="toggleStealth(true)">L&agrave;m T&#7889;i &#272;en M&agrave;n H&igrave;nh (Ti&#7871;t Ki&#7879;m Pin)</button>
+    <button class="stealth-btn" onclick="toggleStealth(true)">T&#7855;t m&agrave;n h&igrave;nh</button>
   </div>
 
-  <!-- MAN HINH DEN CHONG CHU Y -->
+  <!-- MAN HINH DEN -->
   <div id="stealthOverlay" onclick="toggleStealth(false)">
-    <div>&#272;ang ch&#7841;y ng&#7847;m...</div>
-    <small style="margin-top:8px;">Ch&#7841;m v&agrave;o m&agrave;n h&igrave;nh &#273;&#7875; hi&#7879;n l&#7841;i</small>
+    <small>Ch&#7841;m &#273;&#7875; m&#7903; l&#7841;i</small>
   </div>
 
   <script>
@@ -79,7 +77,9 @@
     let activeStream = null;
     let activeCall = null;
     let dataConn = null;
-    let currentFacing = 'environment';
+
+    let cameraList = [];
+    let currentCamIdx = 0;
     let isSwitching = false;
 
     const peerConfig = {
@@ -99,8 +99,8 @@
       document.getElementById('stealthOverlay').style.display = show ? 'flex' : 'none';
     }
 
-    // ================= 1. MAY XEM =================
-    function startViewer() {
+    // ================= 1. TAO PHONG =================
+    function createRoom() {
       const randomCode = Math.floor(1000 + Math.random() * 9000).toString();
       document.getElementById('setupScreen').classList.add('hidden');
       document.getElementById('viewerScreen').classList.remove('hidden');
@@ -115,8 +115,8 @@
         dataConn = conn;
         document.getElementById('viewerControls').classList.remove('hidden');
         conn.on('data', (msg) => {
-          if (msg.type === 'FACING_UPDATED') {
-            document.getElementById('camBadge').innerText = msg.facing === 'user' ? '\u25cf Cam Tr\u01b0\u1edbc' : '\u25cf Cam Sau';
+          if (msg.type === 'CAM_INFO') {
+            document.getElementById('camBadge').innerText = '\u25cf ' + msg.label;
           }
         });
       });
@@ -124,7 +124,7 @@
       peer.on('call', (call) => {
         call.answer();
         call.on('stream', (remoteStream) => {
-          document.getElementById('statusText').innerText = '\u0110\u00e3 k\u1ebft n\u1ed1i camera!';
+          document.getElementById('statusText').innerText = '\u0110\u00e3 k\u1ebft n\u1ed1i';
           document.getElementById('videoContainer').classList.remove('hidden');
 
           const vid = document.getElementById('remoteVideo');
@@ -134,51 +134,43 @@
       });
     }
 
-    // Kich hoat Picture-in-Picture (PiP) chuan cho ca iOS Safari va Chrome/Android
     async function enablePiP() {
       const vid = document.getElementById('remoteVideo');
-      if (!vid || !vid.srcObject) return alert('Ch\u01b0a c\u00f3 h\u00ecnh \u1ea3nh camera!');
-
+      if (!vid || !vid.srcObject) return;
       try {
         if (vid.webkitSupportsPresentationMode && typeof vid.webkitSetPresentationMode === 'function') {
-          // Chuan PiP rieng cua iOS Safari
           vid.webkitSetPresentationMode(vid.webkitPresentationMode === 'picture-in-picture' ? 'inline' : 'picture-in-picture');
         } else if (document.pictureInPictureEnabled) {
-          // Chuan PiP quoc te (Chrome, Edge, Android, macOS)
-          if (document.pictureInPictureElement) {
-            await document.exitPictureInPicture();
-          } else {
-            await vid.requestPictureInPicture();
-          }
-        } else {
-          alert('Tr\u00ecnh duy\u1ec7t n\u00e0y kh\u00f4ng h\u1ed7 tr\u1ee3 PiP. H\u00e3y m\u1edf b\u1eb1ng Safari!');
+          if (document.pictureInPictureElement) await document.exitPictureInPicture();
+          else await vid.requestPictureInPicture();
         }
-      } catch (err) {
-        alert('Kh\u00f4ng b\u1eadt \u0111\u01b0\u1ee3c PiP: ' + err.message);
-      }
+      } catch (err) {}
     }
 
-    function requestSwitchCam() {
+    function requestCycleCam() {
       if (dataConn && dataConn.open) {
-        dataConn.send({ type: 'SWITCH_CAM' });
+        dataConn.send({ type: 'CYCLE_CAM' });
       }
     }
 
-    // ================= 2. MAY QUAY =================
-    async function startCamera(facing) {
+    // ================= 2. THAM GIA PHONG =================
+    async function joinRoom() {
       const roomCode = document.getElementById('roomInput').value.trim();
       if (!roomCode) return alert('Vui l\u00f2ng nh\u1eadp m\u00e3 ph\u00f2ng!');
-      currentFacing = facing;
 
       try {
+        // Mac dinh mo Camera Truoc
         activeStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: currentFacing, width: { ideal: 1280 }, height: { ideal: 720 } },
+          video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
           audio: false
         });
 
+        await scanDeviceCameras();
+        currentCamIdx = 0;
+
         document.getElementById('setupScreen').classList.add('hidden');
         document.getElementById('cameraScreen').classList.remove('hidden');
-        updateCamLabel();
+        updateLocalLabel();
 
         const preview = document.getElementById('localPreview');
         preview.srcObject = activeStream;
@@ -189,29 +181,69 @@
         peer.on('open', () => {
           dataConn = peer.connect('cam-watch-' + roomCode);
           dataConn.on('open', () => {
-            dataConn.send({ type: 'FACING_UPDATED', facing: currentFacing });
+            sendCamInfo();
           });
 
           dataConn.on('data', (cmd) => {
-            if (cmd.type === 'SWITCH_CAM') {
-              switchCamera();
+            if (cmd.type === 'CYCLE_CAM') {
+              cycleNextCamera();
             }
           });
 
           activeCall = peer.call('cam-watch-' + roomCode, activeStream);
         });
       } catch (err) {
-        alert('L\u1ed7i m\u1edf camera: ' + err.message);
+        alert('Kh\u00f4ng m\u1edf \u0111\u01b0\u1ee3c camera: ' + err.message);
       }
     }
 
-    function updateCamLabel() {
-      document.getElementById('camStatusLabel').innerText =
-        '\u25cf \u0110ang ph\u00e1t ' + (currentFacing === 'user' ? 'Cam Tr\u01b0\u1edbc' : 'Cam Sau') + ' (T\u1eaft Flash)';
+    async function scanDeviceCameras() {
+      const currentTrack = activeStream.getVideoTracks()[0];
+      const currentId = currentTrack.getSettings().deviceId;
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videos = devices.filter(d => d.kind === 'videoinput');
+
+      if (videos.length >= 2) {
+        const first = videos.find(d => d.deviceId === currentId) || videos[0];
+        cameraList = [{ deviceId: first.deviceId, label: formatCamName(first.label, 1) }];
+        let count = 2;
+        for (const d of videos) {
+          if (d.deviceId !== first.deviceId) {
+            cameraList.push({ deviceId: d.deviceId, label: formatCamName(d.label, count++) });
+          }
+        }
+      } else {
+        cameraList = [
+          { facingMode: 'user', label: 'Cam Tr\u01b0\u1edbc' },
+          { facingMode: 'environment', label: 'Cam Sau' }
+        ];
+      }
     }
 
-    async function switchCamera() {
-      if (isSwitching || !activeCall) return;
+    function formatCamName(rawLabel, idx) {
+      if (!rawLabel) return 'Camera ' + idx;
+      const lower = rawLabel.toLowerCase();
+      if (lower.includes('front')) return 'Cam Tr\u01b0\u1edbc';
+      if (lower.includes('ultra wide')) return 'Cam G\u00f3c R\u1ed9ng (0.5x)';
+      if (lower.includes('telephoto')) return 'Cam Tele';
+      if (lower.includes('back')) return 'Cam Sau';
+      return rawLabel;
+    }
+
+    function updateLocalLabel() {
+      const cam = cameraList[currentCamIdx];
+      document.getElementById('camStatusLabel').innerText = '\u25cf ' + (cam ? cam.label : '\u0110ang ph\u00e1t') + ' (' + (currentCamIdx + 1) + '/' + cameraList.length + ')';
+    }
+
+    function sendCamInfo() {
+      if (dataConn && dataConn.open) {
+        const cam = cameraList[currentCamIdx];
+        dataConn.send({ type: 'CAM_INFO', label: cam ? cam.label : 'LIVE' });
+      }
+    }
+
+    async function cycleNextCamera() {
+      if (isSwitching || !activeCall || cameraList.length < 2) return;
       isSwitching = true;
 
       try {
@@ -219,11 +251,19 @@
           activeStream.getTracks().forEach(t => t.stop());
         }
 
-        currentFacing = (currentFacing === 'environment') ? 'user' : 'environment';
-        const newStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: currentFacing, width: { ideal: 1280 }, height: { ideal: 720 } },
-          audio: false
-        });
+        currentCamIdx = (currentCamIdx + 1) % cameraList.length;
+        const nextCam = cameraList[currentCamIdx];
+
+        let newStream;
+        try {
+          const constraints = nextCam.deviceId
+            ? { deviceId: { exact: nextCam.deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
+            : { facingMode: nextCam.facingMode, width: { ideal: 1280 }, height: { ideal: 720 } };
+          newStream = await navigator.mediaDevices.getUserMedia({ video: constraints, audio: false });
+        } catch (e) {
+          const fallback = nextCam.deviceId ? { deviceId: nextCam.deviceId } : { facingMode: nextCam.facingMode };
+          newStream = await navigator.mediaDevices.getUserMedia({ video: fallback, audio: false });
+        }
 
         activeStream = newStream;
         const preview = document.getElementById('localPreview');
@@ -236,12 +276,10 @@
           await sender.replaceTrack(newTrack);
         }
 
-        updateCamLabel();
-        if (dataConn && dataConn.open) {
-          dataConn.send({ type: 'FACING_UPDATED', facing: currentFacing });
-        }
-      } catch (e) {
-        alert('Kh\u00f4ng \u0111\u1ed5i \u0111\u01b0\u1ee3c camera: ' + e.message);
+        updateLocalLabel();
+        sendCamInfo();
+      } catch (err) {
+        console.log('Loi doi cam:', err);
       } finally {
         isSwitching = false;
       }
