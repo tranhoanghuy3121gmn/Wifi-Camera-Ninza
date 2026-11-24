@@ -16,14 +16,18 @@
     button.blue-btn { background: #2563eb; color: #fff; }
     button.dark-mode-btn { background: #111; color: #666; border: 1px solid #222; }
     input { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #444; background: #000; color: #fff; font-size: 16px; text-align: center; margin-bottom: 10px; }
-    .row { display: flex; gap: 8px; align-items: center; margin-top: 10px; }
+    .row { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
     .row input { margin-bottom: 0; flex: 1; }
-    .row button { margin: 0; flex: 1.5; }
-    .video-box { position: relative; width: 100%; max-width: 600px; border-radius: 12px; overflow: hidden; background: #000; border: 1px solid #333; min-height: 260px; }
-    video { width: 100%; display: block; object-fit: cover; }
-    canvas.freeze-layer { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; z-index: 10; display: none; }
-    .badge { position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.7); color: #4ade80; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: bold; z-index: 20; }
+    .row button { margin: 0; flex: 2; }
+    .video-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; width: 100%; max-width: 900px; }
+    .cam-slot { position: relative; border-radius: 12px; overflow: hidden; background: #000; border: 2px solid #333; transition: border-color 0.2s; min-height: 200px; }
+    .cam-slot.is-live { border-color: #22c55e; }
+    .cam-slot canvas { width: 100%; height: auto; display: block; background: #111; min-height: 200px; }
+    .badge { position: absolute; top: 8px; left: 8px; background: rgba(0,0,0,0.75); color: #aaa; padding: 4px 10px; border-radius: 6px; font-size: 12px; font-weight: bold; z-index: 10; }
+    .cam-slot.is-live .badge { color: #4ade80; }
     .code-box { font-size: 28px; font-weight: bold; letter-spacing: 3px; color: #4ade80; background: #000; padding: 10px; border-radius: 8px; margin: 8px 0; user-select: all; }
+    #remoteVideo { position: fixed; top: 0; left: 0; width: 2px; height: 2px; opacity: 0.01; pointer-events: none; z-index: -1; }
+    #localPreview { width: 100%; border-radius: 10px; background: #000; max-height: 240px; object-fit: cover; }
     #stealthOverlay { display: none; position: fixed; inset: 0; background: #000; z-index: 9999; color: #222; align-items: center; justify-content: center; flex-direction: column; }
     .hidden { display: none !important; }
   </style>
@@ -37,16 +41,11 @@
     <hr style="border-color:#333; margin: 16px 0;">
     <input type="text" id="roomInput" placeholder="Nh&#7853;p m&atilde; ph&ograve;ng (VD: 1234)" />
     
-    <div style="text-align:left; font-size:13px; color:#aaa; margin: 10px 0 4px;">Ch&#7871; &#273;&#7897; 1: B&igrave;nh th&#432;&#7901;ng (1 Camera)</div>
-    <div class="row" style="margin-top:0;">
-      <button class="secondary" onclick="startNormalMode('environment')">Cam Sau</button>
-      <button class="secondary" onclick="startNormalMode('user')">Cam Tr&#432;&#7899;c</button>
-    </div>
-
-    <div style="text-align:left; font-size:13px; color:#eab308; margin: 14px 0 4px;">Ch&#7871; &#273;&#7897; 2: Lu&acirc;n phi&ecirc;n ch&#7889;ng ch&#7899;p &#273;en</div>
-    <div class="row" style="margin-top:0;">
+    <button class="secondary" onclick="startCameraApp('normal')">Ch&#7871; &#272;&#7897; B&igrave;nh Th&#432;&#7901;ng</button>
+    
+    <div class="row">
       <input type="number" id="initInterval" value="0.5" step="0.1" min="0.2" placeholder="Gi&acirc;y" />
-      <button class="alt-btn" onclick="startAutoSwitchMode()">B&#7855;t &#272;&#7847;u Lu&acirc;n Phi&ecirc;n</button>
+      <button class="alt-btn" onclick="startCameraApp('loop')">Ch&#7871; &#272;&#7897; L&#7863;p</button>
     </div>
   </div>
 
@@ -56,31 +55,26 @@
     <div id="myRoomId" class="code-box">&#272;ang t&#7841;o...</div>
     <div id="statusText" style="font-size:13px; color:#4ade80;">&#272;ang ch&#7901; camera k&#7871;t n&#7889;i...</div>
 
-    <!-- BANG DIEU KHIEN TU XA TREN MAY XEM -->
+    <!-- DIEU KHIEN TU XA TREN MAY XEM -->
     <div id="remoteControls" class="hidden" style="margin-top: 12px; border-top: 1px solid #333; padding-top: 12px;">
-      <button class="blue-btn" onclick="sendCmd({ type: 'SWITCH_ONCE' })">&#8644; &#272;&#7893;i Cam Tr&#432;&#7899;c / Sau Ngay</button>
+      <button class="blue-btn" onclick="sendCmd({ type: 'SWITCH_NEXT' })">&#8644; &#272;&#7893;i Camera Ti&#7871;p Theo</button>
       <div class="row">
         <input type="number" id="remoteInterval" value="0.5" step="0.1" min="0.2" placeholder="Gi&acirc;y" />
-        <button class="alt-btn" onclick="updateRemoteInterval()">T&#7921; &#272;&#7893;i M&#7895;i (Gi&acirc;y)</button>
+        <button class="alt-btn" onclick="startRemoteLoop()">Ch&#7841;y Ch&#7871; &#272;&#7897; L&#7863;p</button>
       </div>
-      <button class="secondary" style="margin-top:8px; font-size:13px; padding:9px;" onclick="sendCmd({ type: 'STOP_AUTO' })">D&#7915;ng T&#7921; &#272;&#7893;i (Gi&#7919; Nguy&ecirc;n G&oacute;c N&agrave;y)</button>
+      <button class="secondary" style="margin-top:8px; font-size:13px; padding:9px;" onclick="sendCmd({ type: 'SET_NORMAL' })">V&#7873; Ch&#7871; &#272;&#7897; B&igrave;nh Th&#432;&#7901;ng (1 Khung)</button>
     </div>
   </div>
 
-  <!-- KHUNG HINH VIDEO CHONG CHOP DEN -->
-  <div id="viewerVideoContainer" class="video-box hidden">
-    <div id="camAngleBadge" class="badge">&#272;ang k&#7871;t n&#7889;i...</div>
-    <video id="remoteVideo" autoplay muted playsinline></video>
-    <canvas id="viewerFreezeCanvas" class="freeze-layer"></canvas>
-  </div>
+  <!-- LUOI HIEN THI CAC KHUNG ANH (FREEZE/UNFREEZE) -->
+  <div id="videoGrid" class="video-grid hidden"></div>
+  <video id="remoteVideo" autoplay muted playsinline></video>
 
   <!-- GIAO DIEN MAY QUAY -->
   <div id="cameraScreen" class="card hidden">
-    <div id="camModeLabel" style="color:#4ade80; font-weight:bold; margin-bottom:8px;">&#9679; &#272;ang ph&aacute;t tr&#7921;c ti&#7871;p (T&#7855;t Flash)</div>
-    <div class="video-box" style="min-height: 200px;">
-      <video id="localPreview" autoplay muted playsinline></video>
-      <canvas id="localFreezeCanvas" class="freeze-layer"></canvas>
-    </div>
+    <div id="camCountBadge" style="font-size:13px; color:#aaa; margin-bottom:6px;">&#272;ang qu&eacute;t camera...</div>
+    <div id="camModeLabel" style="color:#4ade80; font-weight:bold; margin-bottom:10px;">&#9679; &#272;ang ph&aacute;t tr&#7921;c ti&#7871;p (T&#7855;t Flash)</div>
+    <video id="localPreview" autoplay muted playsinline></video>
     <button class="dark-mode-btn" style="margin-top:12px;" onclick="toggleStealth(true)">L&agrave;m T&#7889;i &#272;en M&agrave;n H&igrave;nh (Ti&#7871;t Ki&#7879;m Pin)</button>
   </div>
 
@@ -95,10 +89,22 @@
     let activeStream = null;
     let activeCall = null;
     let dataConn = null;
-    let currentFacing = 'environment';
-    let autoTimer = null;
-    let isSwitching = false;
+
+    // Bien phia MAY QUAY
+    let detectedCameras = [];
+    let currentCamIndex = 0;
+    let currentMode = 'normal';
     let intervalSec = 0.5;
+    let autoTimer = null;
+    let isLoopRunning = false;
+    let isSwitching = false;
+
+    // Bien phia MAY XEM
+    let viewerCameras = [];
+    let viewerMode = 'normal';
+    let activeSlotIndex = 0;
+    let isUpdatingCanvas = true;
+    let renderLoopStarted = false;
 
     const peerConfig = {
       config: {
@@ -117,20 +123,6 @@
       document.getElementById('stealthOverlay').style.display = show ? 'flex' : 'none';
     }
 
-    // Chup khung hinh cuoi cung len Canvas de che man hinh den khi doi cam
-    function freezeVideoFrame(videoEl, canvasEl) {
-      if (!videoEl || videoEl.videoWidth === 0) return;
-      canvasEl.width = videoEl.videoWidth;
-      canvasEl.height = videoEl.videoHeight;
-      const ctx = canvasEl.getContext('2d');
-      ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height);
-      canvasEl.style.display = 'block';
-    }
-
-    function unfreezeVideoFrame(canvasEl) {
-      canvasEl.style.display = 'none';
-    }
-
     // ================= 1. MAY XEM =================
     function startViewer() {
       const randomCode = Math.floor(1000 + Math.random() * 9000).toString();
@@ -147,19 +139,24 @@
         dataConn = conn;
         document.getElementById('remoteControls').classList.remove('hidden');
 
-        // Nhan tin hieu dong bang / mo bang khung hinh tu may quay
         conn.on('data', (msg) => {
-          const rVideo = document.getElementById('remoteVideo');
-          const rCanvas = document.getElementById('viewerFreezeCanvas');
-
-          if (msg.type === 'FREEZE') {
-            freezeVideoFrame(rVideo, rCanvas);
-          } else if (msg.type === 'UNFREEZE') {
-            document.getElementById('camAngleBadge').innerText = msg.facing === 'user' ? 'Camera Tr\u01b0\u1edbc' : 'Camera Sau';
-            // Doi them 150ms cho luong video moi on dinh khung hinh roi moi go anh tinh
-            setTimeout(() => unfreezeVideoFrame(rCanvas), 150);
-          } else if (msg.type === 'SYNC_INTERVAL') {
-            document.getElementById('remoteInterval').value = msg.sec;
+          if (msg.type === 'INIT_CAMS') {
+            viewerCameras = msg.cameras;
+            viewerMode = msg.mode;
+            activeSlotIndex = msg.activeIndex || 0;
+            if (msg.sec) document.getElementById('remoteInterval').value = msg.sec;
+            document.getElementById('statusText').innerText = '\u0110\u00e3 k\u1ebft n\u1ed1i (' + viewerCameras.length + ' camera)';
+            buildViewerSlots();
+            isUpdatingCanvas = true;
+          } else if (msg.type === 'FREEZE_ALL') {
+            // Dong bang khung hien tai truoc khi phan cung doi ong kinh
+            isUpdatingCanvas = false;
+            updateSlotBadges(-1);
+          } else if (msg.type === 'ACTIVE_CAM') {
+            // Unfreeze khung moi de nhan hinh anh live
+            activeSlotIndex = msg.index;
+            isUpdatingCanvas = true;
+            updateSlotBadges(activeSlotIndex);
           }
         });
       });
@@ -167,76 +164,154 @@
       peer.on('call', (call) => {
         call.answer();
         call.on('stream', (remoteStream) => {
-          document.getElementById('statusText').innerText = '\u0110\u00e3 k\u1ebft n\u1ed1i h\u00ecnh \u1ea3nh!';
-          document.getElementById('viewerVideoContainer').classList.remove('hidden');
           const vid = document.getElementById('remoteVideo');
           vid.srcObject = remoteStream;
           vid.play().catch(() => {});
+          if (!renderLoopStarted) {
+            renderLoopStarted = true;
+            requestAnimationFrame(viewerRenderLoop);
+          }
         });
       });
     }
 
-    function sendCmd(payload) {
-      if (dataConn && dataConn.open) {
-        dataConn.send(payload);
+    function buildViewerSlots() {
+      const grid = document.getElementById('videoGrid');
+      grid.classList.remove('hidden');
+      grid.innerHTML = '';
+
+      // Neu che do binh thuong: chi tao 1 khung duy nhat; neu che do lap: tao dung so khung theo so camera
+      const slotCount = (viewerMode === 'loop') ? viewerCameras.length : 1;
+
+      for (let i = 0; i < slotCount; i++) {
+        const slot = document.createElement('div');
+        slot.id = 'slot-' + i;
+        slot.className = 'cam-slot';
+
+        const badge = document.createElement('div');
+        badge.id = 'badge-' + i;
+        badge.className = 'badge';
+        badge.innerText = 'Khung ' + (i + 1) + ': ' + (viewerCameras[i] ? viewerCameras[i].label : 'Camera');
+
+        const canvas = document.createElement('canvas');
+        canvas.id = 'slot-canvas-' + i;
+
+        slot.appendChild(badge);
+        slot.appendChild(canvas);
+        grid.appendChild(slot);
+      }
+      updateSlotBadges(activeSlotIndex);
+    }
+
+    function updateSlotBadges(liveIdx) {
+      const slotCount = (viewerMode === 'loop') ? viewerCameras.length : 1;
+      for (let i = 0; i < slotCount; i++) {
+        const slot = document.getElementById('slot-' + i);
+        const badge = document.getElementById('badge-' + i);
+        if (!slot || !badge) continue;
+
+        if (viewerMode === 'normal') {
+          const camName = viewerCameras[activeSlotIndex] ? viewerCameras[activeSlotIndex].label : 'Camera';
+          slot.classList.add('is-live');
+          badge.innerText = '\u25cf LIVE - ' + camName;
+        } else {
+          const camName = viewerCameras[i] ? viewerCameras[i].label : ('Cam ' + (i + 1));
+          if (i === liveIdx) {
+            slot.classList.add('is-live');
+            badge.innerText = '\u25cf LIVE - ' + camName;
+          } else {
+            slot.classList.remove('is-live');
+            badge.innerText = '\u275a\u275a FREEZE - ' + camName;
+          }
+        }
       }
     }
 
-    function updateRemoteInterval() {
+    function viewerRenderLoop() {
+      const vid = document.getElementById('remoteVideo');
+      if (isUpdatingCanvas && vid.readyState >= 2 && vid.videoWidth > 0) {
+        const targetIdx = (viewerMode === 'loop') ? activeSlotIndex : 0;
+        const canvas = document.getElementById('slot-canvas-' + targetIdx);
+        if (canvas) {
+          if (canvas.width !== vid.videoWidth || canvas.height !== vid.videoHeight) {
+            canvas.width = vid.videoWidth;
+            canvas.height = vid.videoHeight;
+          }
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(vid, 0, 0, canvas.width, canvas.height);
+        }
+      }
+      requestAnimationFrame(viewerRenderLoop);
+    }
+
+    function sendCmd(payload) {
+      if (dataConn && dataConn.open) dataConn.send(payload);
+    }
+
+    function startRemoteLoop() {
       const sec = parseFloat(document.getElementById('remoteInterval').value);
       if (isNaN(sec) || sec < 0.2) return alert('Nh\u1eadp s\u1ed1 gi\u00e2y t\u1ed1i thi\u1ec3u 0.2s');
-      sendCmd({ type: 'SET_AUTO', sec: sec });
+      sendCmd({ type: 'SET_LOOP', sec: sec });
     }
 
     // ================= 2. MAY QUAY =================
-    async function startNormalMode(facing) {
+    async function startCameraApp(mode) {
       const roomCode = document.getElementById('roomInput').value.trim();
       if (!roomCode) return alert('Vui l\u00f2ng nh\u1eadp m\u00e3 ph\u00f2ng!');
-      currentFacing = facing;
-      await initCameraAndConnect(roomCode, false);
-    }
 
-    async function startAutoSwitchMode() {
-      const roomCode = document.getElementById('roomInput').value.trim();
-      if (!roomCode) return alert('Vui l\u00f2ng nh\u1eadp m\u00e3 ph\u00f2ng!');
+      currentMode = mode;
       const sec = parseFloat(document.getElementById('initInterval').value);
       intervalSec = (isNaN(sec) || sec < 0.2) ? 0.5 : sec;
-      await initCameraAndConnect(roomCode, true);
-    }
 
-    async function initCameraAndConnect(roomCode, isAuto) {
       try {
+        // 1. Mac dinh mo Camera Truoc dau tien de xin quyen phan cung
         activeStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: currentFacing, width: { ideal: 960 }, height: { ideal: 540 } },
+          video: { facingMode: 'user', width: { ideal: 960 }, height: { ideal: 540 } },
           audio: false
         });
 
+        // 2. Quet va luu toan bo danh sach camera cua thiet bi
+        await detectAndSaveCameras();
+        currentCamIndex = 0;
+
         document.getElementById('setupScreen').classList.add('hidden');
         document.getElementById('cameraScreen').classList.remove('hidden');
+        document.getElementById('camCountBadge').innerText = '\u0110\u00e3 l\u01b0u ' + detectedCameras.length + ' camera tr\u00ean thi\u1ebft b\u1ecb';
+        
         const preview = document.getElementById('localPreview');
         preview.srcObject = activeStream;
         await preview.play().catch(() => {});
         keepAwake();
 
+        // 3. Ket noi toi may xem
         peer = new Peer(peerConfig);
         peer.on('open', () => {
           dataConn = peer.connect('cam-watch-' + roomCode);
           dataConn.on('open', () => {
-            dataConn.send({ type: 'UNFREEZE', facing: currentFacing });
-            dataConn.send({ type: 'SYNC_INTERVAL', sec: intervalSec });
-            if (isAuto) startAutoLoop();
+            syncCamerasToViewer();
+            if (currentMode === 'loop' && detectedCameras.length > 1) {
+              startAutoLoop();
+            } else {
+              document.getElementById('camModeLabel').innerText = '\u25cf Ch\u1ebf \u0111\u1ed9 b\u00ecnh th\u01b0\u1eddng (' + detectedCameras[0].label + ')';
+            }
           });
 
-          // Lang nghe lenh dieu khien tu may xem
           dataConn.on('data', (cmd) => {
-            if (cmd.type === 'SWITCH_ONCE') {
+            if (cmd.type === 'SWITCH_NEXT') {
               stopAutoLoop();
-              switchCameraSmooth();
-            } else if (cmd.type === 'SET_AUTO') {
+              currentMode = 'normal';
+              syncCamerasToViewer();
+              switchToNextCamera();
+            } else if (cmd.type === 'SET_LOOP') {
               intervalSec = cmd.sec;
-              startAutoLoop();
-            } else if (cmd.type === 'STOP_AUTO') {
+              currentMode = 'loop';
+              syncCamerasToViewer();
+              if (detectedCameras.length > 1) startAutoLoop();
+            } else if (cmd.type === 'SET_NORMAL') {
               stopAutoLoop();
+              currentMode = 'normal';
+              syncCamerasToViewer();
+              document.getElementById('camModeLabel').innerText = '\u25cf Ch\u1ebf \u0111\u1ed9 b\u00ecnh th\u01b0\u1eddng';
             }
           });
 
@@ -247,14 +322,56 @@
       }
     }
 
+    async function detectAndSaveCameras() {
+      const activeTrack = activeStream.getVideoTracks()[0];
+      const activeDeviceId = activeTrack.getSettings().deviceId;
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoInputs = devices.filter(d => d.kind === 'videoinput');
+
+      if (videoInputs.length >= 2) {
+        const frontCam = videoInputs.find(d => d.deviceId === activeDeviceId) || videoInputs[0];
+        detectedCameras = [{ deviceId: frontCam.deviceId, label: frontCam.label || 'Cam Tr\u01b0\u1edbc' }];
+
+        let idx = 2;
+        for (const dev of videoInputs) {
+          if (dev.deviceId !== frontCam.deviceId) {
+            detectedCameras.push({
+              deviceId: dev.deviceId,
+              label: dev.label || ('Cam ' + idx)
+            });
+            idx++;
+          }
+        }
+      } else {
+        // Du phong neu trinh duyet an danh sach deviceId
+        detectedCameras = [
+          { facingMode: 'user', label: 'Cam Tr\u01b0\u1edbc' },
+          { facingMode: 'environment', label: 'Cam Sau' }
+        ];
+      }
+    }
+
+    function syncCamerasToViewer() {
+      if (dataConn && dataConn.open) {
+        dataConn.send({
+          type: 'INIT_CAMS',
+          cameras: detectedCameras.map(c => ({ label: c.label })),
+          mode: currentMode,
+          activeIndex: currentCamIndex,
+          sec: intervalSec
+        });
+      }
+    }
+
     function startAutoLoop() {
       stopAutoLoop();
-      document.getElementById('camModeLabel').innerText = '\u25cf Lu\u00e2n phi\u00ean m\u1ed7i ' + intervalSec + ' gi\u00e2y';
-      
-      // Dung setTimeout de quy de dam bao camera moi da len hinh xong moi dem nguoc tiep
+      isLoopRunning = true;
+      document.getElementById('camModeLabel').innerText = '\u25cf Ch\u1ebf \u0111\u1ed9 l\u1eb7p ' + detectedCameras.length + ' cam (m\u1ed7i ' + intervalSec + 's)';
+
       const loop = async () => {
-        await switchCameraSmooth();
-        if (autoTimer !== null) {
+        if (!isLoopRunning) return;
+        await switchToNextCamera();
+        if (isLoopRunning) {
           autoTimer = setTimeout(loop, intervalSec * 1000);
         }
       };
@@ -262,56 +379,67 @@
     }
 
     function stopAutoLoop() {
+      isLoopRunning = false;
       if (autoTimer) {
         clearTimeout(autoTimer);
         autoTimer = null;
       }
-      document.getElementById('camModeLabel').innerText = '\u25cf \u0110ang ph\u00e1t 1 g\u00f3c c\u1ed1 \u0111\u1ecbnh';
     }
 
-    async function switchCameraSmooth() {
-      if (isSwitching || !activeCall) return;
+    async function openStreamForCam(cam) {
+      try {
+        const videoConstraints = cam.deviceId
+          ? { deviceId: { exact: cam.deviceId }, width: { ideal: 960 }, height: { ideal: 540 } }
+          : { facingMode: cam.facingMode, width: { ideal: 960 }, height: { ideal: 540 } };
+        return await navigator.mediaDevices.getUserMedia({ video: videoConstraints, audio: false });
+      } catch (e) {
+        // Fallback neu thiet bi khong chap nhan exact deviceId
+        const fallback = cam.deviceId ? { deviceId: cam.deviceId } : { facingMode: cam.facingMode };
+        return await navigator.mediaDevices.getUserMedia({ video: fallback, audio: false });
+      }
+    }
+
+    async function switchToNextCamera() {
+      if (isSwitching || !activeCall || detectedCameras.length < 2) return;
       isSwitching = true;
 
-      const preview = document.getElementById('localPreview');
-      const localCanvas = document.getElementById('localFreezeCanvas');
-
       try {
-        // 1. Dong bang khung hinh cuoi cung tren ca 2 may truoc khi tat cam
-        freezeVideoFrame(preview, localCanvas);
-        if (dataConn && dataConn.open) dataConn.send({ type: 'FREEZE' });
+        // 1. Bao may xem FREEZE khung hien tai ngay lap tuc
+        if (dataConn && dataConn.open) dataConn.send({ type: 'FREEZE_ALL' });
+        await new Promise(r => setTimeout(r, 60));
 
-        // 2. Giai phong camera cu
+        // 2. Tat luong cam cu de giai phong phan cung iOS
         if (activeStream) {
           activeStream.getTracks().forEach(t => t.stop());
         }
 
-        // 3. Doi chieu camera va mo luong moi
-        currentFacing = (currentFacing === 'environment') ? 'user' : 'environment';
-        const newStream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: currentFacing, width: { ideal: 960 }, height: { ideal: 540 } },
-          audio: false
-        });
+        // 3. Chuyen sang camera tiep theo trong danh sach da luu
+        currentCamIndex = (currentCamIndex + 1) % detectedCameras.length;
+        const nextCam = detectedCameras[currentCamIndex];
+        const newStream = await openStreamForCam(nextCam);
 
         activeStream = newStream;
+        const preview = document.getElementById('localPreview');
         preview.srcObject = newStream;
         await preview.play().catch(() => {});
 
-        // 4. Thay the track video truyen di
+        // 4. Day track video moi qua WebRTC
         const newTrack = newStream.getVideoTracks()[0];
         const sender = activeCall.peerConnection.getSenders().find(s => s.track && s.track.kind === 'video');
         if (sender) {
           await sender.replaceTrack(newTrack);
         }
 
-        // 5. Go bo lop anh tinh sau khi hinh moi da san sang
-        setTimeout(() => unfreezeVideoFrame(localCanvas), 150);
+        // 5. Doi 250ms de khung hinh moi truyen on dinh sang may xem roi moi UNFREEZE khung moi
+        await new Promise(r => setTimeout(r, 250));
         if (dataConn && dataConn.open) {
-          dataConn.send({ type: 'UNFREEZE', facing: currentFacing });
+          dataConn.send({ type: 'ACTIVE_CAM', index: currentCamIndex });
         }
       } catch (e) {
-        unfreezeVideoFrame(localCanvas);
-        if (dataConn && dataConn.open) dataConn.send({ type: 'UNFREEZE', facing: currentFacing });
+        console.log('Loi chuyen cam:', e);
+        if (dataConn && dataConn.open) {
+          dataConn.send({ type: 'ACTIVE_CAM', index: currentCamIndex });
+        }
       } finally {
         isSwitching = false;
       }
